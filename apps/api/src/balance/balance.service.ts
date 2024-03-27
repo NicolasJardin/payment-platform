@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { ListQueryParams, ListResponse } from 'src/shared/models';
 import { CreateBalanceDto } from './dto/create-balance.dto';
 import { UpdateBalanceDto } from './dto/update-balance.dto';
 import { Balance } from './entities/balance.entity';
@@ -23,10 +24,37 @@ export class BalanceService {
     return this.renderView(balance);
   }
 
-  async findAll() {
-    const balances = await this.prisma.balance.findMany();
+  async findAll(
+    queryParams: ListQueryParams = {
+      page: 1,
+      size: 15,
+    },
+  ): Promise<ListResponse<BalanceView>> {
+    const take = queryParams.size;
+    const skip = queryParams.size * (queryParams.page - 1);
 
-    return balances.map((balance) => this.renderView(balance));
+    const balances = await this.prisma.balance.findMany({
+      where: {
+        name: {
+          contains: queryParams?.query,
+        },
+      },
+      take,
+      skip,
+    });
+
+    const total = await this.prisma.balance.count({
+      where: {
+        name: {
+          contains: queryParams?.query,
+        },
+      },
+    });
+
+    return {
+      items: balances.map((balance) => this.renderView(balance)),
+      total,
+    };
   }
 
   async findOne(id: string) {

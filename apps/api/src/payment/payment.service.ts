@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { ListQueryParams, ListResponse } from 'src/shared/models';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { Payment } from './entities/payment.entity';
@@ -62,10 +63,37 @@ export class PaymentService {
     return this.renderView(payment);
   }
 
-  async findAll() {
-    const payments = await this.prisma.payment.findMany();
+  async findAll(
+    queryParams: ListQueryParams = {
+      page: 1,
+      size: 15,
+    },
+  ): Promise<ListResponse<PaymentView>> {
+    const take = queryParams.size;
+    const skip = queryParams.size * (queryParams.page - 1);
 
-    return payments.map((payment) => this.renderView(payment));
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        name: {
+          contains: queryParams?.query,
+        },
+      },
+      take,
+      skip,
+    });
+
+    const total = await this.prisma.payment.count({
+      where: {
+        name: {
+          contains: queryParams?.query,
+        },
+      },
+    });
+
+    return {
+      items: payments.map((payment) => this.renderView(payment)),
+      total,
+    };
   }
 
   async findOne(id: string) {
